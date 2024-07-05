@@ -1,0 +1,93 @@
+{
+  "name": "vscode-clangd-docref",
+  "displayName": "clangd: Open documentation",
+  "description": "Add hotkey to open symbol documentation",
+  "author": "SR_team",
+  "publisher": "sr-team",
+  "license": "MIT",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sr-tream/vscode-clangd-docref.git"
+  },
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "C",
+    "C++",
+    "clang",
+    "clangd"
+  ],
+  "activationEvents": [
+    "onLanguage:c",
+    "onLanguage:cpp",
+    "onLanguage:cuda-cpp",
+    "onLanguage:objective-c",
+    "onLanguage:objective-cpp"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "clangd: Open documentation",
+      "properties": {
+        "clangd.documentation": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {
+            "^std::.*": "https://duckduckgo.com/?q=!ducky+site:cppreference.com+{{symbol}}",
+            "^boost::.*": "https://duckduckgo.com/?q=!ducky+site:www.boost.org+{{symbol}}"
+          },
+          "markdownDescription": "Regex matches for symbol names, to open documentation in the web browser.\n\nFormat: `regex: url`\n\nVariables supported by URL:\n - `{{symbol}}` - full symbol name with namespace\n - `{{match:N}}` - regex match, where N is match id. `{{match:0}}` equals to `{{symbol}}`"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "clangd.openDocumentation",
+        "category": "clangd",
+        "title": "Open documentation for symbol under cursor",
+        "icon": "$(link-external)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "clangd.openDocumentation",
+        "key": "Shift+f1",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "dependencies": {
+    "@clangd/vscode-clangd": "./vscode-clangd/api",
+    "vscode-languageclient": "8.0.2"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.65.0",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^7.14.1",
+    "@typescript-eslint/parser": "^7.11.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.5",
+    "@vscode/test-cli": "^0.0.9",
+    "@vscode/test-electron": "^2.4.0"
+  },
+  "extensionDependencies": [
+    "llvm-vs-code-extensions.vscode-clangd"
+  ]
+}
