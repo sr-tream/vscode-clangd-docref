@@ -6,18 +6,14 @@ import type { ClangdApiV1, ClangdExtension } from '@clangd/vscode-clangd';
 const CLANGD_EXTENSION = 'llvm-vs-code-extensions.vscode-clangd';
 const CLANGD_API_VERSION = 1;
 
-export async function activate(context: vscode.ExtensionContext) {
-	const clangdExtension = vscode.extensions.getExtension<ClangdExtension>(CLANGD_EXTENSION);
-	if (!clangdExtension) {
-		return undefined;
-	}
-	if (!clangdExtension.isActive) {
-		await clangdExtension.activate();
-	}
-	const api = clangdExtension.exports.getApi(CLANGD_API_VERSION);
+let featureInstance: OpenDocumentationFeature | undefined;
 
-	const feature = new OpenDocumentationFeature(context, api);
-	api.languageClient.registerFeature(feature);
+export async function activate(context: vscode.ExtensionContext) {
+	featureInstance = new OpenDocumentationFeature(context);
+}
+
+export function deactivate() {
+	featureInstance?.dispose();
 }
 
 namespace protocol {
@@ -40,14 +36,26 @@ namespace protocol {
 
 } // namespace protocol
 
-class OpenDocumentationFeature implements vscodelc.StaticFeature {
-	constructor(private context: vscode.ExtensionContext, private clangd: ClangdApiV1) {
+class OpenDocumentationFeature implements vscode.Disposable {
+	private clangd: ClangdApiV1 | undefined;
+
+	constructor(private context: vscode.ExtensionContext) {
 		this.context.subscriptions.push(vscode.commands.registerCommand(
 			'clangd.openDocumentation', this.openDocumentation, this));
 	}
+	dispose() { }
 
-	fillClientCapabilities(_capabilities: vscodelc.ClientCapabilities) { }
-	fillInitializeParams(_params: vscodelc.InitializeParams) { }
+	async getClangd() {
+		if (this.clangd == undefined || this.clangd.languageClient.state === vscodelc.State.Stopped) {
+			const clangdExtension = vscode.extensions.getExtension<ClangdExtension>(CLANGD_EXTENSION);
+			if (!clangdExtension) {
+				throw new Error('Could not find clangd extension');
+			}
+			this.clangd = clangdExtension.exports.getApi(CLANGD_API_VERSION);
+		}
+
+		return this.clangd;
+	}
 
 	async getSymbolsUnderCursor(): Promise<Array<string>> {
 		const editor = vscode.window.activeTextEditor;
@@ -61,7 +69,10 @@ class OpenDocumentationFeature implements vscodelc.StaticFeature {
 			position: position,
 		};
 
-		const reply = await this.clangd.languageClient.sendRequest<protocol.SymbolInfo[]>(
+		const lc = (await this.getClangd()).languageClient;
+		if (lc.state !== vscodelc.State.Running) return [];
+
+		const reply = await lc.sendRequest<protocol.SymbolInfo[]>(
 			protocol.SymbolInfoRequest.type, request);
 
 		let result: Array<string> = [];
@@ -107,9 +118,4 @@ class OpenDocumentationFeature implements vscodelc.StaticFeature {
 		}
 		vscode.window.showWarningMessage('No documentation found for ' + symbols);
 	}
-
-	initialize(capabilities: vscodelc.ServerCapabilities,
-		_documentSelector: vscodelc.DocumentSelector | undefined) { }
-	getState(): vscodelc.FeatureState { return { kind: 'static' }; }
-	dispose() { }
 }
